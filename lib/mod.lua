@@ -1,4 +1,6 @@
 local mod = require 'core/mods'
+local NumberSelector = include('changez/lib/number_selector')
+local Selector = include('changez/lib/selector')
 
 local changez = {}
 local flags = {}
@@ -38,8 +40,8 @@ end
 
 menu.redraw = function()
   screen.clear()
-  screen.move(10, 10)
-  screen.text('This is the Changez menu')
+  screen.move(1, 6)
+  screen.text('Changez')
   screen.update()
 end
 
