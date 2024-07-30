@@ -16,14 +16,7 @@ function Selector:new(options)
   return instance
 end
 
-function Selector:init(options)
-  local values = {}
-
-  for i = 1, #options do
-    values[i] = options[i]
-  end
-
-  self.values = values
+function Selector:init()
 end
 
 function Selector:get(k)
@@ -40,7 +33,7 @@ function Selector:adjust(d)
 end
 
 function Selector:redraw(x, y)
-  local value = self.options[self.selected] or '<SELECT>'
+  local value = self.values[self.selected] or '<SELECT>'
 
   if self.active then
     screen.level(5)

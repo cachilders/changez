@@ -1,8 +1,12 @@
 local mod = require 'core/mods'
 local NumberSelector = include('changez/lib/number_selector')
 local Selector = include('changez/lib/selector')
+local utils = include('changez/lib/utils')
 
 local changez = {}
+local device_ids = {}
+local device_names = {}
+local inputs = {}
 local flags = {}
 local menu = {}
 local programs = {}
@@ -41,12 +45,21 @@ end
 menu.redraw = function()
   screen.clear()
   screen.move(1, 6)
-  screen.text('Changez')
+  screen.text('[Changez]')
+  screen.move(1, 20)
+  screen.text('Device:')
+  inputs.devices:redraw(screen.text_extents('Device:') + 5, 20) -- temp
   screen.update()
 end
 
 menu.init = function()
-  --do stuff when the menu is entered
+  for i = 1, #midi.devices do
+    local device = midi.devices[i]
+    device_ids[i] = device.id
+    device_names[i] = utils.truncate(device.name, 15)
+  end
+
+  inputs.devices = Selector:new({values = device_names})
 end
 
 menu.deinit = function()
