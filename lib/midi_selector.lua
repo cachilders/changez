@@ -1,8 +1,8 @@
 local Selector = include('changez/lib/selector')
 
-local NumberSelector = {}
+local MidiSelector = {}
 
-function NumberSelector:new(options)
+function MidiSelector:new(options)
   local instance = Selector:new(options or {})
   setmetatable(self, {__index = Selector})
   setmetatable(instance, self)
@@ -10,14 +10,14 @@ function NumberSelector:new(options)
   return instance
 end
 
-function NumberSelector:init(n, m)
+function MidiSelector:init()
   local values = {}
 
-  for i = n, m do
-    values[i] = i
+  for i = 1, 128 do
+    values[i] = i - 1
   end
 
   self.values = values
 end
 
-return NumberSelector
+return MidiSelector
