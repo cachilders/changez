@@ -13,14 +13,13 @@ local device_names = {}
 local initialized = false
 local input_count = 3
 local inputs = {}
-local flags = {}
 local menu = {}
-local programs = {}
+local programs = nil
 local public = {}
 local selected_input = 1
 
 -- SYSTEM HOOK CALLBACKS
-mod.hook.register('system_post_startup', 'Changez post startup function', function() end)
+mod.hook.register('system_post_startup', 'Changez post startup function', function() changez.init() end)
 -- system_post_startup - called after matron has fully started and system state has been restored but before any script is run
 mod.hook.register('system_pre_shutdown', 'Changez pre shutdown function', function() end)
 -- system_pre_shutdown - called when SYSTEM > SLEEP is selected from the menu
@@ -32,11 +31,24 @@ mod.hook.register('script_post_cleanup', 'Changez post cleanup function', functi
 -- script_post_cleanup - called after a script’s cleanup() function has been called, this normally occurs when switching between scripts
 
 changez.init = function()
-  -- connect midi and whatnot
+  programs = {}
+  changez.init_params()
+end
+
+changez.init_params = function()
+  params:add_separator('changez_name', 'CHANGEZ')
+  params:add_trigger('changez_reset', 'Reset Programs')
+  params:set_action('changez_reset', changez.reset)
 end
 
 changez.on_midi_message = function()
   -- process incoming message
+end
+
+changez.reset = function()
+  initialized = false
+  select_input = 1
+  program = {}
 end
 
 menu.key = function(k, z)
