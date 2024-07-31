@@ -11,6 +11,7 @@ local changez = {}
 local device_ids = {}
 local device_names = {}
 local initialized = false
+local input_count = 3
 local inputs = {}
 local flags = {}
 local menu = {}
@@ -75,11 +76,12 @@ menu.init = function()
     inputs[1] = Selector:new({id = 1, label = INPUT_LABELS[1], values = device_names})
     inputs[2] = NumberSelector:new({id = 2, label = INPUT_LABELS[2]})
     inputs[2]:init(1, 16)
-
-    for i = 3, 5 do
-      inputs[i] = MidiSelector:new({id = i, label = INPUT_LABELS[i]})
-      inputs[i]:init()
-    end
+    inputs[3] = MidiSelector:new({
+      action = function(p) menu.init_program(p) end,
+      id = 3,
+      label = INPUT_LABELS[3]
+    })
+    inputs[3]:init()
 
     initialized = true
   end
@@ -91,14 +93,62 @@ end
 
 menu.draw_inputs = function()
   local x, y = 1, 20
-  for i = 1, #inputs do
+  local selected_program = inputs[3]:get('selected')
+
+  for i = 1, 3 do
     inputs[i]:redraw(x, y, selected_input == i)
     y = y + 10
+  end
+
+  if selected_program then
+    local selected_program_control_number_selector = programs[selected_program].input
+    local selected_controller_number = selected_program_control_number_selector:get('selected')
+    inputs[4] = selected_program_control_number_selector
+    input_count = 4
+
+    selected_program_control_number_selector:redraw(x, y, selected_input == 4)
+
+    if selected_controller_number then
+      local selected_controller_value_input = programs[selected_program].controllers[selected_controller_number]
+      inputs[5] = selected_controller_value_input
+      input_count = 5
+      y = y + 10
+
+      selected_controller_value_input:redraw(x, y, selected_input == 5)
+    else
+      inputs[5] = nil
+      input_count = 4
+    end
+  else
+    inputs[4] = nil
+    input_count = 3
+  end
+end
+
+menu.init_controller = function(p, c)
+  if not programs[p].controllers[c] then
+    programs[p].controllers[c] = MidiSelector:new({id = p * c, label = INPUT_LABELS[5]})
+    programs[p].controllers[c]:init()
+  end
+end
+
+menu.init_program = function(p)
+  if not programs[p] then
+    programs[p] = {
+      controllers = {},
+      input = MidiSelector:new({
+        action = function(c) menu.init_controller(p, c) end,
+        id = 3 + p,
+        label = INPUT_LABELS[4]
+      })
+    }
+
+    programs[p].input:init()
   end
 end
 
 menu.select_input = function(d)
-  selected_input = util.clamp(selected_input + d, 1, #inputs)
+  selected_input = util.clamp(selected_input + d, 1, input_count)
 end
 
 mod.menu.register(mod.this_name, menu)

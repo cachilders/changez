@@ -23,6 +23,10 @@ function Selector:get(k)
   return self[k]
 end
 
+function Selector:get_value()
+  return self.values[self.selected]
+end
+
 function Selector:set(k, v)
   self[k] = v
 end
