@@ -5,12 +5,14 @@ local NumberSelector = include('changez/lib/number_selector')
 local Selector = include('changez/lib/selector')
 local utils = include('changez/lib/utils')
 
-local INPUT_LABELS = {'Device', 'Channel', 'Program', 'CC#', 'CC Value'}
+local INPUT_LABELS = {'Input', 'Output', 'Program', 'CC#', 'CC Value'}
 
 local changez = {}
+local connections = nil
 local device_ids = {}
 local device_names = {}
-local initialized = false
+local initialized_menu = false
+local initialized_params = false
 local input_count = 3
 local inputs = {}
 local menu = {}
@@ -18,37 +20,53 @@ local programs = nil
 local public = {}
 local selected_input = 1
 
--- SYSTEM HOOK CALLBACKS
-mod.hook.register('system_post_startup', 'Changez post startup function', function() changez.init() end)
--- system_post_startup - called after matron has fully started and system state has been restored but before any script is run
-mod.hook.register('system_pre_shutdown', 'Changez pre shutdown function', function() end)
--- system_pre_shutdown - called when SYSTEM > SLEEP is selected from the menu
-mod.hook.register('script_pre_init', 'Changez pre init function', function() end)
--- script_pre_init - called after a script has been loaded but before its engine has started, pmap settings restored, and init() function called
-mod.hook.register('script_post_init', 'Changez post init function', function() end)
--- script_post_init - called after a script’s init() function has been called
-mod.hook.register('script_post_cleanup', 'Changez post cleanup function', function() end)
--- script_post_cleanup - called after a script’s cleanup() function has been called, this normally occurs when switching between scripts
-
 changez.init = function()
+  connections = {nil, nil}
   programs = {}
-  changez.init_params()
-end
-
-changez.init_params = function()
-  params:add_separator('changez_name', 'CHANGEZ')
-  params:add_trigger('changez_reset', 'Reset Programs')
-  params:set_action('changez_reset', changez.reset)
-end
-
-changez.on_midi_message = function()
-  -- process incoming message
 end
 
 changez.reset = function()
-  initialized = false
+  initialized_menu = false
   select_input = 1
   program = {}
+end
+
+changez.init_params = function()
+  params:add_group('changez_params', 'CHANGEZ', 3)
+  params:add_number('changez_input_ch', 'Input Channel', 1, 16, 1)
+  params:add_number('changez_output_ch', 'Output Channel', 1, 16, 1)
+  params:add_trigger('changez_reset', 'Reset Programs')
+  params:set_action('changez_reset', changez.reset)
+  initialized_params = true
+end
+
+changez.send_midi = function(p)
+  local ch = initialized_params and params:get('changez_output_ch') or 1
+  local program = programs[p]
+  if program and connections[2] then
+    controllers = program.controllers
+    if controllers then
+      for i = 1, #controllers do
+        local controller = controllers[i]
+        if controller then
+          local cc = i - 1
+          local v = controller:get('values')[controller:get('selected')]
+          if v then
+            connections[2]:cc(cc, v, ch)
+          end
+        end
+      end
+    end
+  end
+end 
+
+changez.on_midi_event = function(data)
+  local ch = initialized_params and params:get('changez_input_ch') or 1
+  local msg = midi.to_msg(data)
+
+  if msg.type == 'program_change' and msg.ch == ch then
+    changez.send_midi(msg.val)
+  end
 end
 
 menu.key = function(k, z)
@@ -76,18 +94,27 @@ menu.redraw = function()
 end
 
 menu.init = function()
-  if not initialized then
+  if not initialized_menu then
     for i = 1, #midi.vports do
       if midi.vports[i].name ~= 'none' then
         local device = midi.vports[i]
-        table.insert(device_ids, device.id)
+        table.insert(device_ids, i)
         table.insert(device_names, utils.truncate(device.name, 17))
       end
     end
 
-    inputs[1] = Selector:new({id = 1, label = INPUT_LABELS[1], values = device_names})
-    inputs[2] = NumberSelector:new({id = 2, label = INPUT_LABELS[2]})
-    inputs[2]:init(1, 16)
+    inputs[1] = Selector:new({
+      action = function(id) menu.init_device(device_ids[id], 1) end,
+      id = 1,
+      label = INPUT_LABELS[1],
+      values = device_names
+    })
+    inputs[2] = Selector:new({
+      action = function(id) menu.init_device(device_ids[id], 2) end,
+      id = 1,
+      label = INPUT_LABELS[2],
+      values = device_names
+    })
     inputs[3] = MidiSelector:new({
       action = function(p) menu.init_program(p) end,
       id = 3,
@@ -95,7 +122,7 @@ menu.init = function()
     })
     inputs[3]:init()
 
-    initialized = true
+    initialized_menu = true
   end
 end
 
@@ -144,6 +171,14 @@ menu.init_controller = function(p, c)
   end
 end
 
+menu.init_device = function(id, connection)
+  connections[connection] = midi.connect(id)
+
+  if connection == 1 then
+    connections[1].event = function(data) changez.on_midi_event(data) end
+  end
+end
+
 menu.init_program = function(p)
   if not programs[p] then
     programs[p] = {
@@ -164,6 +199,18 @@ menu.select_input = function(d)
 end
 
 mod.menu.register(mod.this_name, menu)
+
+-- SYSTEM HOOK CALLBACKS
+mod.hook.register('system_post_startup', 'Changez post startup function', changez.init)
+-- system_post_startup - called after matron has fully started and system state has been restored but before any script is run
+mod.hook.register('system_pre_shutdown', 'Changez pre shutdown function', function() end)
+-- system_pre_shutdown - called when SYSTEM > SLEEP is selected from the menu
+mod.hook.register('script_pre_init', 'Changez pre init function', changez.init_params)
+-- script_pre_init - called after a script has been loaded but before its engine has started, pmap settings restored, and init() function called
+mod.hook.register('script_post_init', 'Changez post init function', function() end)
+-- script_post_init - called after a script’s init() function has been called
+mod.hook.register('script_post_cleanup', 'Changez post cleanup function', function() end)
+-- script_post_cleanup - called after a script’s cleanup() function has been called, this normally occurs when switching between scripts
 
 -- EXTERNAL API
 public.example = function(s)
