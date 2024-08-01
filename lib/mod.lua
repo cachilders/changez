@@ -1,4 +1,5 @@
 local mod = require 'core/mods'
+local tab = require 'tabutil'
 local util = require 'util'
 local MidiSelector = include('changez/lib/midi_selector')
 local NumberSelector = include('changez/lib/number_selector')
@@ -11,6 +12,7 @@ local changez = {}
 local connections = nil
 local device_ids = {}
 local device_names = {}
+local filepath = norns.state.data..'changez.autosave'
 local initialized_menu = false
 local initialized_params = false
 local input_count = 3
@@ -20,15 +22,75 @@ local programs = nil
 local public = {}
 local selected_input = 1
 
+changez.autoload = function()
+  local saved_programs = tab.load(filepath)
+  if saved_programs then
+    for i, program in pairs(saved_programs) do
+      if program then
+        local saved_controllers = program.controllers
+        changez.init_program(i, program.input)
+        if saved_controllers then
+          for j, controller in pairs(saved_controllers) do
+            if controller then
+              changez.init_controller(i, j, controller)
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
+changez.autosave = function()
+  tab.save(programs, filepath)
+end
+
 changez.init = function()
   connections = {nil, nil}
   programs = {}
+  changez.autoload()
+end
+
+changez.init_controller = function(p, c)
+  if not programs[p].controllers[c] then
+    programs[p].controllers[c] = MidiSelector:new({
+      id = p * c,
+      label = INPUT_LABELS[5],
+      selected = options and options.selected or nil
+    })
+    programs[p].controllers[c]:init()
+  end
+end
+
+changez.init_device = function(id, connection)
+  connections[connection] = midi.connect(id)
+
+  if connection == 1 then
+    connections[1].event = function(data) changez.on_midi_event(data) end
+  end
+end
+
+changez.init_program = function(p, options)
+  if not programs[p] then
+    programs[p] = {
+      controllers = {},
+      input = MidiSelector:new({
+        action = function(c) changez.init_controller(p, c) end,
+        id = 3 + p,
+        label = INPUT_LABELS[4],
+        selected = options and options.selected or nil
+      })
+    }
+
+    programs[p].input:init()
+  end
 end
 
 changez.reset = function()
   initialized_menu = false
   select_input = 1
-  program = {}
+  programs = {}
+  changez.autosave()
 end
 
 changez.init_params = function()
@@ -52,6 +114,7 @@ changez.send_midi = function(p)
           local cc = i - 1
           local v = controller:get('values')[controller:get('selected')]
           if v then
+            print('Program '..p..' selected. Sending: cc# '..cc..': '..v..' on ch '..ch)
             connections[2]:cc(cc, v, ch)
           end
         end
@@ -71,6 +134,7 @@ end
 
 menu.key = function(k, z)
   if k == 2 and z == 0 then
+    changez.autosave()
     mod.menu.exit()
   end
 end
@@ -104,19 +168,19 @@ menu.init = function()
     end
 
     inputs[1] = Selector:new({
-      action = function(id) menu.init_device(device_ids[id], 1) end,
+      action = function(id) changez.init_device(device_ids[id], 1) end,
       id = 1,
       label = INPUT_LABELS[1],
       values = device_names
     })
     inputs[2] = Selector:new({
-      action = function(id) menu.init_device(device_ids[id], 2) end,
+      action = function(id) changez.init_device(device_ids[id], 2) end,
       id = 1,
       label = INPUT_LABELS[2],
       values = device_names
     })
     inputs[3] = MidiSelector:new({
-      action = function(p) menu.init_program(p) end,
+      action = function(p) changez.init_program(p) end,
       id = 3,
       label = INPUT_LABELS[3]
     })
@@ -161,36 +225,6 @@ menu.draw_inputs = function()
   else
     inputs[4] = nil
     input_count = 3
-  end
-end
-
-menu.init_controller = function(p, c)
-  if not programs[p].controllers[c] then
-    programs[p].controllers[c] = MidiSelector:new({id = p * c, label = INPUT_LABELS[5]})
-    programs[p].controllers[c]:init()
-  end
-end
-
-menu.init_device = function(id, connection)
-  connections[connection] = midi.connect(id)
-
-  if connection == 1 then
-    connections[1].event = function(data) changez.on_midi_event(data) end
-  end
-end
-
-menu.init_program = function(p)
-  if not programs[p] then
-    programs[p] = {
-      controllers = {},
-      input = MidiSelector:new({
-        action = function(c) menu.init_controller(p, c) end,
-        id = 3 + p,
-        label = INPUT_LABELS[4]
-      })
-    }
-
-    programs[p].input:init()
   end
 end
 
