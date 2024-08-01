@@ -1,4 +1,5 @@
 local mod = require 'core/mods'
+local tab = require 'tabutil'
 local util = require 'util'
 local MidiSelector = include('changez/lib/midi_selector')
 local NumberSelector = include('changez/lib/number_selector')
@@ -11,6 +12,7 @@ local changez = {}
 local connections = nil
 local device_ids = {}
 local device_names = {}
+local filepath = norns.state.data..'changez.bkp'
 local initialized_menu = false
 local initialized_params = false
 local input_count = 3
@@ -20,15 +22,45 @@ local programs = nil
 local public = {}
 local selected_input = 1
 
+changez.autoload = function()
+  local saved_programs = tab.load(filepath)
+  if saved_programs then
+    for i, program in ipairs(saved_programs) do
+      if program then
+        local saved_controllers = program.controllers
+        programs[i] = {
+          controllers = {},
+          input = MidiSelector:new(program.input)
+        }
+        if saved_controllers then
+          for j, controller in ipairs(saved_controllers) do
+            if controller then
+              programs[i].controllers[j] = MidiSelector:new(controller)
+            end
+          end
+        end
+      else
+        programs[i] = program
+      end
+    end
+  end
+end
+
+changez.autosave = function()
+  tab.save(programs, filepath)
+end
+
 changez.init = function()
   connections = {nil, nil}
   programs = {}
+  changez.autoload()
 end
 
 changez.reset = function()
   initialized_menu = false
   select_input = 1
   program = {}
+  changez.autosave()
 end
 
 changez.init_params = function()
@@ -52,6 +84,7 @@ changez.send_midi = function(p)
           local cc = i - 1
           local v = controller:get('values')[controller:get('selected')]
           if v then
+            print('Program '..p..' selected. Sending: cc# '..cc..': '..v..' on ch '..ch)
             connections[2]:cc(cc, v, ch)
           end
         end
@@ -71,6 +104,7 @@ end
 
 menu.key = function(k, z)
   if k == 2 and z == 0 then
+    changez.autosave()
     mod.menu.exit()
   end
 end
