@@ -51,7 +51,7 @@ changez.init = function()
   changez.autoload()
 end
 
-changez.init_controller = function(p, c)
+changez.init_controller = function(p, c, options)
   if not programs[p].controllers[c] then
     programs[p].controllers[c] = MidiSelector:new({
       id = p * c,
