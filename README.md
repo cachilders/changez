@@ -1,10 +1,10 @@
 # changez
 
-It's not just the French formal imperitive conjugation of the verb "to change." It's a norns mod that eats `program change` midi messages from a source and spits `cc` messages out to another.
+It's not just the French formal imperitive conjugation of the verb "to change." It's a norns mod that eats `program change` messages from one midi device and spits `cc` messages out to another.
 
 ![the changez mod menu](./assets/mod_menu_3.png)
 
-Midi devices are selected from the changez mod menu (`SYSTEM > MODS > CHANGEZ>`). These devices will need to be distinct from any you are using with whichever scripts you run.
+Midi devices are selected from the changez mod menu (`SYSTEM > MODS > CHANGEZ>`). These devices will need to be different from any you are using with whichever scripts you run.
 
 The mod menu is also where you'll program your continuous controller messages. Each of the standard midi programs can emit any and all of the control channels comprising them.
 
@@ -14,7 +14,7 @@ Because programming all of those programs can be tedious, the mod is equipped wi
 
 Because everyone deserves a fresh start now and again, you can can trash your autosave and start from scratch on the whole config by navigating to the mod params (`EDIT > CHANGEZ`) and toggling `Reset Programs`.
 
-CAVEATS: This menu doesn't exist without a script loaded and there is __no undo for resets__.
+CAVEATS: This menu doesn't exist without a script loaded, and there is __no undo for resets__.
 
 Autosave is handled via `dust/data/changez.autosave`. Renaming is a safer alternative to resetting.
 
