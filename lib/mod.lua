@@ -94,16 +94,19 @@ changez.reset = function()
 end
 
 changez.init_params = function()
-  params:add_group('changez_params', 'CHANGEZ', 3)
+  params:add_group('changez_params', 'CHANGEZ', 4)
   params:add_number('changez_input_ch', 'Input Channel', 1, 16, 1)
   params:add_number('changez_output_ch', 'Output Channel', 1, 16, 1)
+  params:add_binary('changez_pmap', 'PMAP Routing', 'toggle', 1)
   params:add_trigger('changez_reset', 'Reset Programs')
   params:set_action('changez_reset', changez.reset)
+  params:read(nil, true)
   initialized_params = true
 end
 
 changez.send_midi = function(p)
   local ch = initialized_params and params:get('changez_output_ch') or 1
+  local pmap = initialized_params and params:get('changez_pmap') == 1
   local program = programs[p]
   if program and connections[2] then
     controllers = program.controllers
@@ -114,8 +117,12 @@ changez.send_midi = function(p)
           local cc = i - 1
           local v = controller:get('values')[controller:get('selected')]
           if v then
-            print('Program '..p..' selected. Sending: cc# '..cc..': '..v..' on ch '..ch)
+            print('Program '..(p - 1)..' selected. Sending: cc# '..cc..': '..v..' on ch '..ch)
             connections[2]:cc(cc, v, ch)
+            if pmap then
+              local data = midi.to_data({cc = cc, ch = ch, val = v, type = 'cc'})
+              norns.menu_midi_event(data, connections[2].device.port)
+            end
           end
         end
       end
@@ -237,7 +244,7 @@ mod.menu.register(mod.this_name, menu)
 -- SYSTEM HOOK CALLBACKS
 mod.hook.register('system_post_startup', 'Changez post startup function', changez.init)
 -- system_post_startup - called after matron has fully started and system state has been restored but before any script is run
-mod.hook.register('system_pre_shutdown', 'Changez pre shutdown function', function() end)
+mod.hook.register('system_pre_shutdown', 'Changez pre shutdown function', changez.autosave)
 -- system_pre_shutdown - called when SYSTEM > SLEEP is selected from the menu
 mod.hook.register('script_pre_init', 'Changez pre init function', changez.init_params)
 -- script_pre_init - called after a script has been loaded but before its engine has started, pmap settings restored, and init() function called
